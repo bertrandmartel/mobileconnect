@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html class="site no-js lang--en" lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="x-ua-compatible" content="ie=edge">
+		<meta name="description" content="">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+		<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+		<link rel="stylesheet" href="/static/msisdn.css">
+		<title>Service Provider</title>
+		<style>
+		html, body {
+			height: 100%;
+		}
+		.main {
+			height: 100%;
+			width: 100%;
+			display: table;
+		}
+		.wrapper {
+			display: table-cell;
+			height: 100%;
+			vertical-align: middle;
+		}
+		.error-message {
+			color: red;
+			margin-bottom: 1.2em;
+		}
+		</style>
+	</head>
+
+	<body class="center">
+		<main class="main">
+			<div class="wrapper">
+				<img class="responsive-img" src="/static/title.gif" style='padding-left:2em;padding-right:2em;width:30%;'/>
+				<h5 class="indigo-text" style='margin-bottom:1.3em'>Welcome {{.title}} {{.given_name}}!</h5>
+				<div style='background-color: #EEE;' class="flow-text">
+					<div>{{.email}}</div>
+					<div>
+						<p>{{.street_address}}</p>
+						<p>{{.city}} {{.postal_code}}</p>
+						<p>{{.country}}</p>
+					</div>
+				</div>
+				<div id="session_countdown" class="flow-text" style='margin-bottom:1.3em'></div>
+				<button type='submit' id='btn_logout' class='col s12 btn btn-large waves-effect red lighten-1'>Logout</button>
+			</div>
+		</main>
+		<script>
+			const sessionTimeout = "{{.session_timeout}}"
+			document.getElementById("btn_logout").addEventListener("click", function(){
+				document.location.href = "/logout"
+			});
+			timeleft = sessionTimeout - Math.round(new Date().getTime() / 1000)
+
+			if (timeleft > 0) {
+				//https://stackoverflow.com/a/31106229/2614364
+				var sessionTimer = setInterval(function(){
+				  document.getElementById("session_countdown").innerHTML = "Session : " + timeleft + " seconds remaining";
+				  timeleft -= 1;
+				  if(timeleft <= 0){
+				    clearInterval(sessionTimer);
+				    document.getElementById("session_countdown").innerHTML = "Session has expired, please reload the page"
+				  }
+				}, 1000);
+			} else {
+				document.getElementById("session_countdown").innerHTML = "Session has expired, please reload the page";
+			}
+		</script>
+	</body>
+
+</html>

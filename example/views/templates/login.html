@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html class="site no-js lang--en" lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="x-ua-compatible" content="ie=edge">
+		<meta name="description" content="">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+		<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+		<link rel="stylesheet" href="/static/msisdn.css">
+		<title>Service Provider</title>
+		<style>
+		html, body {
+			height: 100%;
+		}
+		.main {
+			height: 100%;
+			width: 100%;
+			display: table;
+		}
+		.wrapper {
+			display: table-cell;
+			height: 100%;
+			vertical-align: middle;
+		}
+		.error-message {
+			color: red;
+			margin-bottom: 1.2em;
+		}
+		</style>
+	</head>
+
+	<body class="center">
+		<main class="main">
+			<div class="wrapper">
+				<img class="responsive-img" src="/static/title.gif" style='padding-left:2em;padding-right:2em;width:30%;'/>
+				<h5 class="indigo-text" style='margin-bottom:1.3em'>Please, login into your account</h5>
+				<div class="container" style='width: 20em;'>
+					<div class="error-message flow-text">{{.message}}</div>
+					<form class="col s12" method="post" action="login">
+						<div class='row'>
+						  <button type='submit' name='btn_login' class='col s12 btn btn-large waves-effect indigo'>Mobile Connect</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</main>
+	</body>
+
+</html>

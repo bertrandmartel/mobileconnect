@@ -1,0 +1,23 @@
+{
+	"version": "0.1",
+	"port": 6004,
+	"serverPath": "http://localhost",
+	"discoveryEndpoint": "https://discovery.sandbox.mobileconnect.io/v2/discovery",
+	"authOptions": {
+		"redirectUri": "http://localhost:6004/callback",
+		"scope": "openid mc_authz mc_identity_signup",
+		"version": "mc_di_r2_v2.3",
+		"acr_values": "3",
+		"client_name": "MCTesting",
+		"binding_message": "some message",
+		"context": "Login",
+		"jwtFieldsToSkip": ["nonce", "acr"]
+	},
+	"client": {
+		"client_id": "client_id_for_discoverty",
+		"client_secret": "client_secret_for_discoverty",
+		"redirect_uri": [
+			"http://localhost:6004/discovery_callback"
+		]
+	}
+}
