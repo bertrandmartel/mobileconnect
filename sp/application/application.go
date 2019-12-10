@@ -1,19 +1,20 @@
 package application
 
 import (
-	"github.com/bertrandmartel/mobileconnect/sp/session"
-	"github.com/bertrandmartel/mobileconnect/sp/config"
 	"net/http"
+
+	"github.com/bertrandmartel/mobileconnect/sp/config"
+	"github.com/bertrandmartel/mobileconnect/sp/session"
 )
 
 type MobileConnectApp interface {
-	GetHttpClient() *http.Client
+	GetHTTPClient() *http.Client
 	SetSession(*session.Session) (id string, e error)
 	GetSessionFromStore(uuid *string) (s *session.Session, e error)
 	DeleteSession(uuid *string) error
 	GetConfig() *config.Config
 	SetCookie(c interface{}, name string, value string)
-	GetCookie(c interface{}, name string) (string,error)
+	GetCookie(c interface{}, name string) (string, error)
 	DeleteCookie(c interface{}, name string)
 	SetSessionCookie(c interface{}, name string, value string)
 	SetSessionContext(c interface{}, s *session.Session)

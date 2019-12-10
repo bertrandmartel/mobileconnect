@@ -1,21 +1,22 @@
 package auth
 
 import (
-	"net/http"
 	"context"
-	"net/url"
-	"testing"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"testing"
 	"time"
-	"encoding/json"
-	"github.com/stretchr/testify/assert"
+
+	"github.com/bertrandmartel/mobileconnect/sp/application"
 	"github.com/bertrandmartel/mobileconnect/sp/config"
 	"github.com/bertrandmartel/mobileconnect/sp/mcmodel"
 	"github.com/bertrandmartel/mobileconnect/sp/session"
-	"github.com/bertrandmartel/mobileconnect/sp/application"
+	"github.com/stretchr/testify/assert"
 )
 
 var httpClient = &http.Client{
@@ -23,59 +24,59 @@ var httpClient = &http.Client{
 }
 
 var globalConfig = &config.Config{
-	Version: "0.1",
-	Port: 6004,
-	ServerPath: "http://localhost",
+	Version:           "0.1",
+	Port:              6004,
+	ServerPath:        "http://localhost",
 	DiscoveryEndpoint: "https://discovery.sandbox.mobileconnect.io/v2/discovery",
 	AuthOptions: config.AuthOptions{
-		RedirectUri: "http://localhost:6004/callback",
-		Scope: "openid mc_authz mc_identity_signup",
-		Version: "mc_di_r2_v2.3",
-		AcrValues: "3",
-		ClientName: "MCTesting",
-		BindingMessage: "some message",
-		Context: "Login",
+		RedirectURI:         "http://localhost:6004/callback",
+		Scope:               "openid mc_authz mc_identity_signup",
+		Version:             "mc_di_r2_v2.3",
+		AcrValues:           "3",
+		ClientName:          "MCTesting",
+		BindingMessage:      "some message",
+		Context:             "Login",
 		JwtVerificationSkip: []string{"nonce", "acr"},
 	},
 	Client: config.Client{
-		ClientId: "client_id_for_discoverty",
+		ClientID:     "client_id_for_discoverty",
 		ClientSecret: "client_secret_for_discoverty",
-		RedirectUri: []string{"http://localhost:6004/discovery_callback"},
+		RedirectURI:  []string{"http://localhost:6004/discovery_callback"},
 	},
 }
 
-const testingServerBaseUrl = "http://localhost:3132"
-const discoveryUrl = "http://localhost/discovery-ui"
-const authorizeUrl = "http://localhost/authorize"
-const tokenUrl = "http://localhost/token"
-const userinfoUrl = "http://localhost/userinfo"
+const testingServerBaseURL = "http://localhost:3132"
+const discoveryURL = "http://localhost/discovery-ui"
+const authorizeURL = "http://localhost/authorize"
+const tokenURL = "http://localhost/token"
+const userinfoURL = "http://localhost/userinfo"
 
 var sharedParams = &SharedAppParams{}
 
 var httpServer http.Server
 
-var mccMncDiscoveryResponse = &mcmodel.MccMncDiscoveryResponse {
+var mccMncDiscoveryResponse = &mcmodel.MccMncDiscoveryResponse{
 	TTL: 1518882158,
 	Response: mcmodel.OperatorConfig{
-		ClientId: "some client id",
-		ClientSecret: "some client secret",
+		ClientID:        "some client id",
+		ClientSecret:    "some client secret",
 		ServingOperator: "operator A",
-		Country: "France",
-		Currency: "Euro",
-		Apis: mcmodel.IdGatewayApi{
-			OperatorId: mcmodel.IdGatewayOperatorMeta{
-				Link: []mcmodel.IdGatewayOperatorLink{
+		Country:         "France",
+		Currency:        "Euro",
+		Apis: mcmodel.IDGatewayAPI{
+			OperatorID: mcmodel.IDGatewayOperatorMeta{
+				Link: []mcmodel.IDGatewayOperatorLink{
 					{
-						Rel: "authorization",
-						Href: authorizeUrl,
+						Rel:  "authorization",
+						Href: authorizeURL,
 					},
 					{
-						Rel: "token",
-						Href: tokenUrl,
+						Rel:  "token",
+						Href: tokenURL,
 					},
 					{
-						Rel: "premiuminfo",
-						Href: userinfoUrl,
+						Rel:  "premiuminfo",
+						Href: userinfoURL,
 					},
 				},
 			},
@@ -83,115 +84,116 @@ var mccMncDiscoveryResponse = &mcmodel.MccMncDiscoveryResponse {
 	},
 }
 
-var tokenResponse = &mcmodel.TokenResponse {
-	AccessToken: "some access token",
-	TokenType: "Bearer",
-	ExpiresIn: 100,
-	IdToken: "some jwt token",
-	CorrelationId: "some correlation id",
+var tokenResponse = &mcmodel.TokenResponse{
+	AccessToken:   "some access token",
+	TokenType:     "Bearer",
+	ExpiresIn:     100,
+	IDToken:       "some jwt token",
+	CorrelationID: "some correlation id",
 }
 
-var userInfoResponse = &mcmodel.UserInfoResponse {
-	Sub:"PCR",
-	PhoneNumberAlternate:"0123456789",
-	Title:"M",
-	GivenName:"John Doe",
-	FamilyName:"Doe",
-	MiddleName:"",
-	StreetAddress:"10 downing street",
-	City: "London",
-	State: "London",
-	PostalCode: "ABCD",
-	Country:"UK",
-	Email:"john@example.com",
+var userInfoResponse = &mcmodel.UserInfoResponse{
+	Sub:                  "PCR",
+	PhoneNumberAlternate: "0123456789",
+	Title:                "M",
+	GivenName:            "John Doe",
+	FamilyName:           "Doe",
+	MiddleName:           "",
+	StreetAddress:        "10 downing street",
+	City:                 "London",
+	State:                "London",
+	PostalCode:           "ABCD",
+	Country:              "UK",
+	Email:                "john@example.com",
 }
 
 var discoveryResponse = &mcmodel.DiscoveryResponse{
-	Links: []mcmodel.IdGatewayOperatorLink{
+	Links: []mcmodel.IDGatewayOperatorLink{
 		{
-			Rel: "operatorSelection",
-			Href: discoveryUrl,
+			Rel:  "operatorSelection",
+			Href: discoveryURL,
 		},
 	},
 }
 
-func startHttpServer() {
-    httpServer := &http.Server{Addr: ":3132"}
+func startHTTPServer() {
+	httpServer := &http.Server{Addr: ":3132"}
 
-    http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-        io.WriteString(w, "hello world\n")
-    })
-    http.HandleFunc("/401", func(w http.ResponseWriter, r *http.Request) {
-        http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
-    })
-    http.HandleFunc("/405", func(w http.ResponseWriter, r *http.Request) {
-        http.Error(w, "405 Not Allowed", http.StatusMethodNotAllowed)
-    })
-    http.HandleFunc("/discovery_response", func(w http.ResponseWriter, r *http.Request) {
-    	w.Header().Set("Content-Type", "application/json")
-    	w.WriteHeader(http.StatusAccepted)
-        json.NewEncoder(w).Encode(discoveryResponse)
-    })
-    http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "hello world\n")
+	})
+	http.HandleFunc("/401", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+	})
+	http.HandleFunc("/405", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "405 Not Allowed", http.StatusMethodNotAllowed)
+	})
+	http.HandleFunc("/discovery_response", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-    	w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(tokenResponse)
-    })
-    http.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(discoveryResponse)
+	})
+	http.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-    	w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(userInfoResponse)
-    })
-    http.HandleFunc("/discovery", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(tokenResponse)
+	})
+	http.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-    	w.WriteHeader(http.StatusOK)
-        json.NewEncoder(w).Encode(mccMncDiscoveryResponse)
-    })
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(userInfoResponse)
+	})
+	http.HandleFunc("/discovery", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(mccMncDiscoveryResponse)
+	})
 
-    go func() {
-        if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
-            fmt.Println(fmt.Sprintf("ListenAndServe(): %s", err))
-        }
-    }()
+	go func() {
+		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			fmt.Println(fmt.Sprintf("ListenAndServe(): %s", err))
+		}
+	}()
 }
 
 func setup() {
 	fmt.Println("launching testing http server")
-	startHttpServer()
+	startHTTPServer()
+	time.Sleep(1 * time.Second)
 }
 
-func shutdown(){
+func shutdown() {
 	fmt.Println("shutdown")
 	if err := httpServer.Shutdown(context.Background()); err != nil {
-        fmt.Println(err)
-    }
+		fmt.Println(err)
+	}
 }
 
 //executed before all test in this package
 func TestMain(m *testing.M) {
-    setup()
-    code := m.Run() 
-    shutdown()
-    os.Exit(code)
+	setup()
+	code := m.Run()
+	shutdown()
+	os.Exit(code)
 }
 
 type SharedAppParams struct {
-	Context interface{}
-	Session *session.Session
-	Error error
-	SetSession *session.Session
-	Location *string
+	Context      interface{}
+	Session      *session.Session
+	Error        error
+	SetSession   *session.Session
+	Location     *string
 	LoginSuccess bool
-	CookieName string
-	CookieValue string
-	Redirect bool
+	CookieName   string
+	CookieValue  string
+	Redirect     bool
 }
 
 type TestMessage struct {
-	UserId int `json:"userId"`
-	Id int `json:"id"`
-	Title string `json:"title"`
-	Completed bool `json:"completed"`
+	UserID    int    `json:"userId"`
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	Completed bool   `json:"completed"`
 }
 
 func TestFetchDiscovery(t *testing.T) {
@@ -205,21 +207,21 @@ func TestFetchDiscovery(t *testing.T) {
 	assert.NotNil(t, err)
 
 	//404
-	err = fetchDiscovery(httpClient, fmt.Sprintf("%v/404", testingServerBaseUrl), nil, "", "")
+	err = fetchDiscovery(httpClient, fmt.Sprintf("%v/404", testingServerBaseURL), nil, "", "")
 	assert.NotNil(t, err)
 	assert.Equal(t, "record was not found", err.Error())
 
 	//incorrect status code
-	err = fetchDiscovery(httpClient, fmt.Sprintf("%v/hello", testingServerBaseUrl), nil, "", "")
+	err = fetchDiscovery(httpClient, fmt.Sprintf("%v/hello", testingServerBaseURL), nil, "", "")
 	assert.NotNil(t, err)
 	assert.Equal(t, "received incorrect status : 200", err.Error())
 
 	//request valid but status code not the one expected
 	discoveryResponse := new(mcmodel.DiscoveryResponse)
-	err = fetchDiscovery(httpClient, fmt.Sprintf("%v/discovery_response", testingServerBaseUrl), discoveryResponse,  "", "")
+	err = fetchDiscovery(httpClient, fmt.Sprintf("%v/discovery_response", testingServerBaseURL), discoveryResponse, "", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(discoveryResponse.Links))
-	assert.Equal(t, discoveryUrl, discoveryResponse.Links[0].Href)
+	assert.Equal(t, discoveryURL, discoveryResponse.Links[0].Href)
 	assert.Equal(t, "operatorSelection", discoveryResponse.Links[0].Rel)
 }
 
@@ -241,33 +243,33 @@ func TestFetchOperator(t *testing.T) {
 
 	//here the request endup in error after Do
 	globalConfig.DiscoveryEndpoint = ""
-	err = fetchOperator(httpClient, globalConfig, nil, []string{"302","22"})
+	err = fetchOperator(httpClient, globalConfig, nil, []string{"302", "22"})
 	assert.NotNil(t, err)
 
 	//404
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/404", testingServerBaseUrl)
-	err = fetchOperator(httpClient, globalConfig, nil, []string{"302","22"})
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/404", testingServerBaseURL)
+	err = fetchOperator(httpClient, globalConfig, nil, []string{"302", "22"})
 	assert.NotNil(t, err)
 	assert.Equal(t, "record was not found", err.Error())
 
-	//!=404 & !=200 
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/401", testingServerBaseUrl)
-	err = fetchOperator(httpClient, globalConfig, nil, []string{"302","22"})
+	//!=404 & !=200
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/401", testingServerBaseURL)
+	err = fetchOperator(httpClient, globalConfig, nil, []string{"302", "22"})
 	assert.NotNil(t, err)
 	assert.Equal(t, "received incorrect status : 401", err.Error())
 
 	//200 but JSON error
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/hello", testingServerBaseUrl)
-	err = fetchOperator(httpClient, globalConfig, nil, []string{"302","22"})
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/hello", testingServerBaseURL)
+	err = fetchOperator(httpClient, globalConfig, nil, []string{"302", "22"})
 	assert.NotNil(t, err)
 
 	//OK
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery", testingServerBaseUrl)
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery", testingServerBaseURL)
 	resp := new(mcmodel.MccMncDiscoveryResponse)
-	err = fetchOperator(httpClient, globalConfig, resp, []string{"302","22"})
+	err = fetchOperator(httpClient, globalConfig, resp, []string{"302", "22"})
 	assert.Nil(t, err)
 	assert.Equal(t, mccMncDiscoveryResponse.TTL, resp.TTL)
-	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientId, resp.Response.ClientId)
+	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientID, resp.Response.ClientID)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientSecret, resp.Response.ClientSecret)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.ServingOperator, resp.Response.ServingOperator)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.Country, resp.Response.Country)
@@ -285,24 +287,24 @@ func TestFetchToken(t *testing.T) {
 	assert.NotNil(t, err)
 
 	//404
-	err = fetchToken(httpClient, fmt.Sprintf("%v/404", testingServerBaseUrl), nil, "", "", "")
+	err = fetchToken(httpClient, fmt.Sprintf("%v/404", testingServerBaseURL), nil, "", "", "")
 	assert.NotNil(t, err)
 	assert.Equal(t, "record was not found", err.Error())
 
 	//!=200 & !=404
-	err = fetchToken(httpClient, fmt.Sprintf("%v/405", testingServerBaseUrl), nil, "", "", "")
+	err = fetchToken(httpClient, fmt.Sprintf("%v/405", testingServerBaseURL), nil, "", "", "")
 	assert.NotNil(t, err)
 	assert.Equal(t, "received incorrect status : 405", err.Error())
 
 	//OK
 	resp := new(mcmodel.TokenResponse)
-	err = fetchToken(httpClient, fmt.Sprintf("%v/token", testingServerBaseUrl), resp, "", "", "")
+	err = fetchToken(httpClient, fmt.Sprintf("%v/token", testingServerBaseURL), resp, "", "", "")
 	assert.Nil(t, err)
 	assert.Equal(t, tokenResponse.AccessToken, resp.AccessToken)
 	assert.Equal(t, tokenResponse.TokenType, resp.TokenType)
-	assert.Equal(t, fmt.Sprintf("%v",tokenResponse.ExpiresIn), fmt.Sprintf("%v",resp.ExpiresIn))
-	assert.Equal(t, tokenResponse.IdToken, resp.IdToken)
-	assert.Equal(t, tokenResponse.CorrelationId, resp.CorrelationId)
+	assert.Equal(t, fmt.Sprintf("%v", tokenResponse.ExpiresIn), fmt.Sprintf("%v", resp.ExpiresIn))
+	assert.Equal(t, tokenResponse.IDToken, resp.IDToken)
+	assert.Equal(t, tokenResponse.CorrelationID, resp.CorrelationID)
 }
 
 func TestFetchUserInfo(t *testing.T) {
@@ -316,22 +318,22 @@ func TestFetchUserInfo(t *testing.T) {
 	assert.NotNil(t, err)
 
 	//404
-	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/404", testingServerBaseUrl), nil, "")
+	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/404", testingServerBaseURL), nil, "")
 	assert.NotNil(t, err)
 	assert.Equal(t, "record was not found", err.Error())
 
-	//!=404 & !=200 
-	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/401", testingServerBaseUrl), nil, "")
+	//!=404 & !=200
+	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/401", testingServerBaseURL), nil, "")
 	assert.NotNil(t, err)
 	assert.Equal(t, "received incorrect status : 401", err.Error())
 
 	//200 but JSON error
-	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/hello", testingServerBaseUrl), nil, "")
+	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/hello", testingServerBaseURL), nil, "")
 	assert.NotNil(t, err)
 
 	//OK
 	resp := new(mcmodel.UserInfoResponse)
-	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/userinfo", testingServerBaseUrl), resp, "")
+	err = fetchUserInfo(httpClient, fmt.Sprintf("%v/userinfo", testingServerBaseURL), resp, "")
 	assert.Nil(t, err)
 	assert.Equal(t, userInfoResponse.Sub, resp.Sub)
 	assert.Equal(t, userInfoResponse.PhoneNumberAlternate, resp.PhoneNumberAlternate)
@@ -347,51 +349,51 @@ func TestFetchUserInfo(t *testing.T) {
 	assert.Equal(t, userInfoResponse.Email, resp.Email)
 }
 
-func TestAuthorize(t *testing.T){
+func TestAuthorize(t *testing.T) {
 	operatorConfig := &mcmodel.OperatorConfig{
-		ClientId: "some client id",
-		ClientSecret: "",
+		ClientID:        "some client id",
+		ClientSecret:    "",
 		ServingOperator: "",
-		Country: "",
-		Currency: "",
-		Apis: mcmodel.IdGatewayApi{
-			OperatorId: mcmodel.IdGatewayOperatorMeta{
-				Link: []mcmodel.IdGatewayOperatorLink{
+		Country:         "",
+		Currency:        "",
+		Apis: mcmodel.IDGatewayAPI{
+			OperatorID: mcmodel.IDGatewayOperatorMeta{
+				Link: []mcmodel.IDGatewayOperatorLink{
 					{
 						Href: "test",
-						Rel: "test",
+						Rel:  "test",
 					},
 				},
 			},
 		},
 	}
 	//operator config nil
-	auhtorizeUrl, err := authorize(nil, globalConfig, "", "", "")
-	assert.Equal(t, "", auhtorizeUrl)
+	auhtorizeURL, err := authorize(nil, globalConfig, "", "", "")
+	assert.Equal(t, "", auhtorizeURL)
 	assert.NotNil(t, err)
 	assert.Equal(t, "operatorConfig is nil", err.Error())
 
 	//config nil
-	auhtorizeUrl, err = authorize(operatorConfig, nil, "", "", "")
-	assert.Equal(t, "", auhtorizeUrl)
+	auhtorizeURL, err = authorize(operatorConfig, nil, "", "", "")
+	assert.Equal(t, "", auhtorizeURL)
 	assert.NotNil(t, err)
 	assert.Equal(t, "config is nil", err.Error())
 
 	//auhorization url missing
-	auhtorizeUrl, err = authorize(operatorConfig, globalConfig, "", "", "")
-	assert.Equal(t, "", auhtorizeUrl)
+	auhtorizeURL, err = authorize(operatorConfig, globalConfig, "", "", "")
+	assert.Equal(t, "", auhtorizeURL)
 	assert.NotNil(t, err)
 	assert.Equal(t, "authorization url not found", err.Error())
 
-	operatorConfig.Apis.OperatorId.Link[0].Rel = "authorization"
-	operatorConfig.Apis.OperatorId.Link[0].Href = "http://localhost"
-	auhtorizeUrl, err = authorize(operatorConfig, globalConfig, "some state", "some subscriberId", "some nonce")
+	operatorConfig.Apis.OperatorID.Link[0].Rel = "authorization"
+	operatorConfig.Apis.OperatorID.Link[0].Href = "http://localhost"
+	auhtorizeURL, err = authorize(operatorConfig, globalConfig, "some state", "some subscriberId", "some nonce")
 	assert.Nil(t, err)
-	u, err := url.Parse(auhtorizeUrl)
+	u, err := url.Parse(auhtorizeURL)
 	assert.Nil(t, err)
 	q := u.Query()
-	assert.Equal(t, operatorConfig.ClientId, q.Get("client_id"))
-	assert.Equal(t, globalConfig.AuthOptions.RedirectUri, q.Get("redirect_uri"))
+	assert.Equal(t, operatorConfig.ClientID, q.Get("client_id"))
+	assert.Equal(t, globalConfig.AuthOptions.RedirectURI, q.Get("redirect_uri"))
 	assert.Equal(t, "code", q.Get("response_type"))
 	assert.Equal(t, globalConfig.AuthOptions.Scope, q.Get("scope"))
 	assert.Equal(t, globalConfig.AuthOptions.Version, q.Get("version"))
@@ -404,23 +406,23 @@ func TestAuthorize(t *testing.T){
 	assert.Equal(t, globalConfig.AuthOptions.Context, q.Get("context"))
 }
 
-func TestAuthorizeWithPCR(t *testing.T){
+func TestAuthorizeWithPCR(t *testing.T) {
 	s := &session.Session{
-		Id: "some id",
-		Nonce: "some nonce",
+		ID:                "some id",
+		Nonce:             "some nonce",
 		AuthorizeEndpoint: "",
 		OperatorConfig: mcmodel.OperatorConfig{
-			ClientId: "some client id",
-			ClientSecret: "",
+			ClientID:        "some client id",
+			ClientSecret:    "",
 			ServingOperator: "",
-			Country: "",
-			Currency: "",
-			Apis: mcmodel.IdGatewayApi{
-				OperatorId: mcmodel.IdGatewayOperatorMeta{
-					Link: []mcmodel.IdGatewayOperatorLink{
+			Country:         "",
+			Currency:        "",
+			Apis: mcmodel.IDGatewayAPI{
+				OperatorID: mcmodel.IDGatewayOperatorMeta{
+					Link: []mcmodel.IDGatewayOperatorLink{
 						{
 							Href: "test",
-							Rel: "test",
+							Rel:  "test",
 						},
 					},
 				},
@@ -431,37 +433,37 @@ func TestAuthorizeWithPCR(t *testing.T){
 		},
 	}
 	//config nil
-	auhtorizeUrl, err := authorizeWithPCR(nil, s, false)
-	assert.Equal(t, "", auhtorizeUrl)
+	auhtorizeURL, err := authorizeWithPCR(nil, s, false)
+	assert.Equal(t, "", auhtorizeURL)
 	assert.NotNil(t, err)
 	assert.Equal(t, "config is nil", err.Error())
 
 	//session nil
-	auhtorizeUrl, err = authorizeWithPCR(globalConfig, nil, false)
-	assert.Equal(t, "", auhtorizeUrl)
+	auhtorizeURL, err = authorizeWithPCR(globalConfig, nil, false)
+	assert.Equal(t, "", auhtorizeURL)
 	assert.NotNil(t, err)
 	assert.Equal(t, "session is nil", err.Error())
 
 	//authorization url missing
 	s.AuthorizeEndpoint = ""
-	auhtorizeUrl, err = authorizeWithPCR(globalConfig, s, false)
-	assert.Equal(t, "", auhtorizeUrl)
+	auhtorizeURL, err = authorizeWithPCR(globalConfig, s, false)
+	assert.Equal(t, "", auhtorizeURL)
 	assert.NotNil(t, err)
 	assert.Equal(t, "authorization url not found", err.Error())
 
 	//PCR false
 	s.AuthorizeEndpoint = "http://localhost"
-	auhtorizeUrl, err = authorizeWithPCR(globalConfig, s, false)
+	auhtorizeURL, err = authorizeWithPCR(globalConfig, s, false)
 	assert.Nil(t, err)
-	u, err := url.Parse(auhtorizeUrl)
+	u, err := url.Parse(auhtorizeURL)
 	assert.Nil(t, err)
 	q := u.Query()
-	assert.Equal(t, s.OperatorConfig.ClientId, q.Get("client_id"))
-	assert.Equal(t, globalConfig.AuthOptions.RedirectUri, q.Get("redirect_uri"))
+	assert.Equal(t, s.OperatorConfig.ClientID, q.Get("client_id"))
+	assert.Equal(t, globalConfig.AuthOptions.RedirectURI, q.Get("redirect_uri"))
 	assert.Equal(t, "code", q.Get("response_type"))
 	assert.Equal(t, globalConfig.AuthOptions.Scope, q.Get("scope"))
 	assert.Equal(t, globalConfig.AuthOptions.Version, q.Get("version"))
-	assert.Equal(t, s.Id, q.Get("state"))
+	assert.Equal(t, s.ID, q.Get("state"))
 	assert.Equal(t, s.Nonce, q.Get("nonce"))
 	assert.Equal(t, s.UserInfo.Sub, q.Get("login_hint"))
 	assert.Equal(t, globalConfig.AuthOptions.AcrValues, q.Get("acr_values"))
@@ -471,31 +473,31 @@ func TestAuthorizeWithPCR(t *testing.T){
 
 	//PCR true
 	s.AuthorizeEndpoint = "http://localhost"
-	auhtorizeUrl, err = authorizeWithPCR(globalConfig, s, true)
+	auhtorizeURL, err = authorizeWithPCR(globalConfig, s, true)
 	assert.Nil(t, err)
-	u, err = url.Parse(auhtorizeUrl)
+	u, err = url.Parse(auhtorizeURL)
 	assert.Nil(t, err)
 	q = u.Query()
-	assert.Equal(t, s.OperatorConfig.ClientId, q.Get("client_id"))
-	assert.Equal(t, globalConfig.AuthOptions.RedirectUri, q.Get("redirect_uri"))
+	assert.Equal(t, s.OperatorConfig.ClientID, q.Get("client_id"))
+	assert.Equal(t, globalConfig.AuthOptions.RedirectURI, q.Get("redirect_uri"))
 	assert.Equal(t, "code", q.Get("response_type"))
 	assert.Equal(t, globalConfig.AuthOptions.Scope, q.Get("scope"))
 	assert.Equal(t, globalConfig.AuthOptions.Version, q.Get("version"))
-	assert.Equal(t, s.Id, q.Get("state"))
+	assert.Equal(t, s.ID, q.Get("state"))
 	assert.Equal(t, s.Nonce, q.Get("nonce"))
-	assert.Equal(t, "PCR:" + s.UserInfo.Sub, q.Get("login_hint"))
+	assert.Equal(t, "PCR:"+s.UserInfo.Sub, q.Get("login_hint"))
 	assert.Equal(t, globalConfig.AuthOptions.AcrValues, q.Get("acr_values"))
 	assert.Equal(t, globalConfig.AuthOptions.ClientName, q.Get("client_name"))
 	assert.Equal(t, globalConfig.AuthOptions.BindingMessage, q.Get("binding_message"))
 	assert.Equal(t, globalConfig.AuthOptions.Context, q.Get("context"))
 }
 
-func TestRenderFailedLogin(t *testing.T){
+func TestRenderFailedLogin(t *testing.T) {
 	//app nil
 	err := renderFailedLogin(nil, "", nil, nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, "app is nil", err.Error())
-	
+
 	var mcHandler application.MobileConnectApp = &CustomMcApp{}
 	s := &session.Session{
 		ErrorMessage: "",
@@ -510,14 +512,14 @@ func TestRenderFailedLogin(t *testing.T){
 	sharedParams.Error = errors.New("some custom error")
 	s.ErrorMessage = "some error"
 	testContext := &TestMessage{
-		UserId: 1,
+		UserID: 1,
 	}
 	err = renderFailedLogin(testContext, "", &mcHandler, s)
 	assert.NotNil(t, err)
 	assert.Equal(t, "some custom error", err.Error())
 	assert.NotNil(t, sharedParams.Context)
 	mess := sharedParams.Context.(*TestMessage)
-	assert.Equal(t, 1, (*mess).UserId)
+	assert.Equal(t, 1, mess.UserID)
 	assert.NotNil(t, sharedParams.Session)
 	assert.Equal(t, "some error", sharedParams.Session.ErrorMessage)
 	assert.Nil(t, sharedParams.SetSession)
@@ -526,14 +528,14 @@ func TestRenderFailedLogin(t *testing.T){
 	sharedParams.Error = errors.New("some custom error")
 	s.ErrorMessage = "some error"
 	testContext = &TestMessage{
-		UserId: 1,
+		UserID: 1,
 	}
 	err = renderFailedLogin(testContext, "another error", &mcHandler, s)
 	assert.NotNil(t, err)
 	assert.Equal(t, "some custom error", err.Error())
 	assert.NotNil(t, sharedParams.Context)
 	mess = sharedParams.Context.(*TestMessage)
-	assert.Equal(t, 1, (*mess).UserId)
+	assert.Equal(t, 1, mess.UserID)
 	assert.NotNil(t, sharedParams.Session)
 	assert.Equal(t, "another error", sharedParams.Session.ErrorMessage)
 	assert.NotNil(t, sharedParams.SetSession)
@@ -542,17 +544,17 @@ func TestRenderFailedLogin(t *testing.T){
 
 func TestSearchLinkField(t *testing.T) {
 	operatorConfig := &mcmodel.OperatorConfig{
-		ClientId: "some client id",
-		ClientSecret: "",
+		ClientID:        "some client id",
+		ClientSecret:    "",
 		ServingOperator: "",
-		Country: "",
-		Currency: "",
-		Apis: mcmodel.IdGatewayApi{
-			OperatorId: mcmodel.IdGatewayOperatorMeta{
-				Link: []mcmodel.IdGatewayOperatorLink{
+		Country:         "",
+		Currency:        "",
+		Apis: mcmodel.IDGatewayAPI{
+			OperatorID: mcmodel.IDGatewayOperatorMeta{
+				Link: []mcmodel.IDGatewayOperatorLink{
 					{
 						Href: "http://localhost",
-						Rel: "test",
+						Rel:  "test",
 					},
 				},
 			},
@@ -562,10 +564,10 @@ func TestSearchLinkField(t *testing.T) {
 	result := searchLinkField(nil, "")
 	assert.Equal(t, "", result)
 
-	result = searchLinkField(&operatorConfig.Apis.OperatorId.Link, "")
+	result = searchLinkField(&operatorConfig.Apis.OperatorID.Link, "")
 	assert.Equal(t, "", result)
 
-	result = searchLinkField(&operatorConfig.Apis.OperatorId.Link, "test")
+	result = searchLinkField(&operatorConfig.Apis.OperatorID.Link, "test")
 	assert.Equal(t, "http://localhost", result)
 }
 
@@ -576,35 +578,34 @@ func TestProcess(t *testing.T) {
 	}
 	request := &mcmodel.DiscoveryRequest{
 		SubscriberID: "subid",
-		MccMnc: "302_22",
+		MccMnc:       "302_22",
 		ErrorMessage: "error message",
 	}
 	//request nil
 	clearSharedParam()
-	err := Process(nil, nil, mcHandler, s);
+	err := Process(nil, nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "request is nil", s.ErrorMessage)
 	assert.Equal(t, "request is nil", sharedParams.Session.ErrorMessage)
-	
+
 	//session nil
 	clearSharedParam()
-	err = Process(nil, request, mcHandler, nil);
+	err = Process(nil, request, mcHandler, nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, "session is nil", err.Error())
 
 	//request.ErrorMessage not empty with error message NotSupportedOperatorMSISDN
 	clearSharedParam()
 	request.ErrorMessage = "NotSupportedOperatorMSISDN"
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Operator for this phone number was not found", s.ErrorMessage)
 	assert.Equal(t, "Operator for this phone number was not found", sharedParams.Session.ErrorMessage)
 
-
 	//request.ErrorMessage not empty with error message MSISDNNotFound
 	clearSharedParam()
 	request.ErrorMessage = "MSISDNNotFound"
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Mobile Connect is not supported for this phone number", s.ErrorMessage)
 	assert.Equal(t, "Mobile Connect is not supported for this phone number", sharedParams.Session.ErrorMessage)
@@ -612,7 +613,7 @@ func TestProcess(t *testing.T) {
 	//request.ErrorMessage not empty with error message custom
 	clearSharedParam()
 	request.ErrorMessage = "custom error message"
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "custom error message", s.ErrorMessage)
 	assert.Equal(t, "custom error message", sharedParams.Session.ErrorMessage)
@@ -621,7 +622,7 @@ func TestProcess(t *testing.T) {
 	clearSharedParam()
 	request.ErrorMessage = ""
 	request.SubscriberID = ""
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "ApiExchange failed to send required parameters", s.ErrorMessage)
 	assert.Equal(t, "ApiExchange failed to send required parameters", sharedParams.Session.ErrorMessage)
@@ -631,7 +632,7 @@ func TestProcess(t *testing.T) {
 	request.ErrorMessage = ""
 	request.SubscriberID = "SubId"
 	request.MccMnc = "30222"
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Bad MCC/MNC format", s.ErrorMessage)
 	assert.Equal(t, "Bad MCC/MNC format", sharedParams.Session.ErrorMessage)
@@ -642,73 +643,73 @@ func TestProcess(t *testing.T) {
 	request.ErrorMessage = ""
 	request.SubscriberID = "SubId"
 	request.MccMnc = "302_22"
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Fail to find operator", s.ErrorMessage)
 	assert.Equal(t, "Fail to find operator", sharedParams.Session.ErrorMessage)
 
 	//config.DiscoveryEndpoint is correct but authorization URL is empty
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery", testingServerBaseUrl)
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery", testingServerBaseURL)
 	clearSharedParam()
 	request.ErrorMessage = ""
 	request.SubscriberID = "SubId"
 	request.MccMnc = "302_22"
 	s.OperatorConfig = mcmodel.OperatorConfig{
-		ClientId: "",
-		ClientSecret: "",
+		ClientID:        "",
+		ClientSecret:    "",
 		ServingOperator: "",
-		Country: "",
-		Currency: "",
+		Country:         "",
+		Currency:        "",
 	}
-	mccMncDiscoveryResponse.Response.Apis.OperatorId.Link = []mcmodel.IdGatewayOperatorLink{}
-	err = Process(nil, request, mcHandler, s);
+	mccMncDiscoveryResponse.Response.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{}
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "authorization url not found", s.ErrorMessage)
 	assert.Equal(t, "authorization url not found", sharedParams.Session.ErrorMessage)
-	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientId, s.OperatorConfig.ClientId)
+	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientID, s.OperatorConfig.ClientID)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientSecret, s.OperatorConfig.ClientSecret)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.ServingOperator, s.OperatorConfig.ServingOperator)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.Country, s.OperatorConfig.Country)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.Currency, s.OperatorConfig.Currency)
-	
+
 	//OK
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery", testingServerBaseUrl)
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery", testingServerBaseURL)
 	clearSharedParam()
 	request.ErrorMessage = ""
 	request.SubscriberID = "SubId"
 	request.MccMnc = "302_22"
 	s.OperatorConfig = mcmodel.OperatorConfig{
-		ClientId: "",
-		ClientSecret: "",
+		ClientID:        "",
+		ClientSecret:    "",
 		ServingOperator: "",
-		Country: "",
-		Currency: "",
+		Country:         "",
+		Currency:        "",
 	}
 	s.ErrorMessage = ""
-	mccMncDiscoveryResponse.Response.Apis.OperatorId.Link = []mcmodel.IdGatewayOperatorLink{
+	mccMncDiscoveryResponse.Response.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
 		{
-			Rel: "authorization",
-			Href: authorizeUrl,
+			Rel:  "authorization",
+			Href: authorizeURL,
 		},
 		{
-			Rel: "token",
-			Href: tokenUrl,
+			Rel:  "token",
+			Href: tokenURL,
 		},
 		{
-			Rel: "premiuminfo",
-			Href: userinfoUrl,
+			Rel:  "premiuminfo",
+			Href: userinfoURL,
 		},
 	}
-	err = Process(nil, request, mcHandler, s);
+	err = Process(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "", s.ErrorMessage)
-	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientId, s.OperatorConfig.ClientId)
+	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientID, s.OperatorConfig.ClientID)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.ClientSecret, s.OperatorConfig.ClientSecret)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.ServingOperator, s.OperatorConfig.ServingOperator)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.Country, s.OperatorConfig.Country)
 	assert.Equal(t, mccMncDiscoveryResponse.Response.Currency, s.OperatorConfig.Currency)
 	assert.NotNil(t, sharedParams.Location)
-	location, err := authorize(&mccMncDiscoveryResponse.Response, globalConfig, s.Id,request.SubscriberID, s.Nonce)
+	location, err := authorize(&mccMncDiscoveryResponse.Response, globalConfig, s.ID, request.SubscriberID, s.Nonce)
 	assert.Nil(t, err)
 	assert.Equal(t, location, *sharedParams.Location)
 }
@@ -719,21 +720,21 @@ func TestCallback(t *testing.T) {
 		ErrorMessage: "",
 	}
 	request := &mcmodel.LoginCallback{
-		Error: "some error",
+		Error:            "some error",
 		ErrorDescription: "some error description",
-		Code: "code",
-		State: "state",
+		Code:             "code",
+		State:            "state",
 	}
 	//request nil
 	clearSharedParam()
-	err := Callback(nil, nil, mcHandler, s);
+	err := Callback(nil, nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "request is nil", s.ErrorMessage)
 	assert.Equal(t, "request is nil", sharedParams.Session.ErrorMessage)
 
 	//session is nil
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, nil);
+	err = Callback(nil, request, mcHandler, nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, "session is nil", err.Error())
 
@@ -741,30 +742,30 @@ func TestCallback(t *testing.T) {
 	request.Error = "some error"
 	request.ErrorDescription = "some error description"
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
-	assert.Equal(t, request.Error + " : " + request.ErrorDescription, s.ErrorMessage)
-	assert.Equal(t, request.Error + " : " + request.ErrorDescription, sharedParams.Session.ErrorMessage)
+	assert.Equal(t, request.Error+" : "+request.ErrorDescription, s.ErrorMessage)
+	assert.Equal(t, request.Error+" : "+request.ErrorDescription, sharedParams.Session.ErrorMessage)
 
 	//code is empty
 	request.Error = ""
 	request.ErrorDescription = ""
 	request.Code = ""
 	clearSharedParam()
-	s.Id = "custom id"
-	err = Callback(nil, request, mcHandler, s);
+	s.ID = "custom id"
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
-	assert.Equal(t, s.Id, sharedParams.Session.Id)
+	assert.Equal(t, s.ID, sharedParams.Session.ID)
 
 	request.Code = "code"
 
 	s.OperatorConfig = mcmodel.OperatorConfig{
-		Apis: mcmodel.IdGatewayApi{
-			OperatorId: mcmodel.IdGatewayOperatorMeta{
-				Link: []mcmodel.IdGatewayOperatorLink{
+		Apis: mcmodel.IDGatewayAPI{
+			OperatorID: mcmodel.IDGatewayOperatorMeta{
+				Link: []mcmodel.IDGatewayOperatorLink{
 					{
 						Href: "http://localhost",
-						Rel: "test",
+						Rel:  "test",
 					},
 				},
 			},
@@ -772,112 +773,112 @@ func TestCallback(t *testing.T) {
 	}
 	//token endpoint is not in operator config
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "token endpoint not found in operator config", s.ErrorMessage)
 	assert.Equal(t, "token endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = append(
-		s.OperatorConfig.Apis.OperatorId.Link, 
-		mcmodel.IdGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/token_incorrect_url", testingServerBaseUrl),
-			Rel: "token",
+	s.OperatorConfig.Apis.OperatorID.Link = append(
+		s.OperatorConfig.Apis.OperatorID.Link,
+		mcmodel.IDGatewayOperatorLink{
+			Href: fmt.Sprintf("%v/token_incorrect_url", testingServerBaseURL),
+			Rel:  "token",
 		})
 
 	//userinfo endpoint is not in operator config
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "premiuminfo endpoint not found in operator config", s.ErrorMessage)
 	assert.Equal(t, "premiuminfo endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = append(
-		s.OperatorConfig.Apis.OperatorId.Link, 
-		mcmodel.IdGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseUrl),
-			Rel: "premiuminfo",
+	s.OperatorConfig.Apis.OperatorID.Link = append(
+		s.OperatorConfig.Apis.OperatorID.Link,
+		mcmodel.IDGatewayOperatorLink{
+			Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseURL),
+			Rel:  "premiuminfo",
 		})
 
 	//token endpoint is in config but is incorrect
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Fail to get token", s.ErrorMessage)
 	assert.Equal(t, "Fail to get token", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = []mcmodel.IdGatewayOperatorLink{
+	s.OperatorConfig.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
 		{
-			Href: fmt.Sprintf("%v/token", testingServerBaseUrl),
-			Rel: "token",
-		},{
-			Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseUrl),
-			Rel: "premiuminfo",
+			Href: fmt.Sprintf("%v/token", testingServerBaseURL),
+			Rel:  "token",
+		}, {
+			Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseURL),
+			Rel:  "premiuminfo",
 		},
 	}
 
 	//userinfo endpoint is in config but is incorrect
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Fail to get userinfo", s.ErrorMessage)
 	assert.Equal(t, "Fail to get userinfo", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = []mcmodel.IdGatewayOperatorLink{
+	s.OperatorConfig.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
 		{
-			Href: fmt.Sprintf("%v/token", testingServerBaseUrl),
-			Rel: "token",
-		},{
-			Href: fmt.Sprintf("%v/userinfo", testingServerBaseUrl),
-			Rel: "premiuminfo",
+			Href: fmt.Sprintf("%v/token", testingServerBaseURL),
+			Rel:  "token",
+		}, {
+			Href: fmt.Sprintf("%v/userinfo", testingServerBaseURL),
+			Rel:  "premiuminfo",
 		},
 	}
 
 	//jwks endpoint is not in config
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "jwks endpoint not found in operator config", s.ErrorMessage)
 	assert.Equal(t, "jwks endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = append(
-		s.OperatorConfig.Apis.OperatorId.Link, 
-		mcmodel.IdGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/jwks", testingServerBaseUrl),
-			Rel: "jwks",
+	s.OperatorConfig.Apis.OperatorID.Link = append(
+		s.OperatorConfig.Apis.OperatorID.Link,
+		mcmodel.IDGatewayOperatorLink{
+			Href: fmt.Sprintf("%v/jwks", testingServerBaseURL),
+			Rel:  "jwks",
 		})
 
 	//authorization endpoint is not in config
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "authorization endpoint not found in operator config", s.ErrorMessage)
 	assert.Equal(t, "authorization endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = append(
-		s.OperatorConfig.Apis.OperatorId.Link, 
-		mcmodel.IdGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/authorize", testingServerBaseUrl),
-			Rel: "authorization",
+	s.OperatorConfig.Apis.OperatorID.Link = append(
+		s.OperatorConfig.Apis.OperatorID.Link,
+		mcmodel.IDGatewayOperatorLink{
+			Href: fmt.Sprintf("%v/authorize", testingServerBaseURL),
+			Rel:  "authorization",
 		})
 
 	//issuer value is not in config
 	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "issuer value not found in operator config", s.ErrorMessage)
 	assert.Equal(t, "issuer value not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorId.Link = append(
-		s.OperatorConfig.Apis.OperatorId.Link, 
-		mcmodel.IdGatewayOperatorLink{
+	s.OperatorConfig.Apis.OperatorID.Link = append(
+		s.OperatorConfig.Apis.OperatorID.Link,
+		mcmodel.IDGatewayOperatorLink{
 			Href: "http://localhost",
-			Rel: "issuer",
+			Rel:  "issuer",
 		})
 
 	//OK
 	clearSharedParam()
 	s.UserInfo = mcmodel.UserInfoResponse{}
-	err = Callback(nil, request, mcHandler, s);
+	err = Callback(nil, request, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, userInfoResponse.Sub, s.UserInfo.Sub)
 	assert.Equal(t, userInfoResponse.PhoneNumberAlternate, s.UserInfo.PhoneNumberAlternate)
@@ -893,7 +894,7 @@ func TestCallback(t *testing.T) {
 
 	assert.True(t, sharedParams.LoginSuccess)
 	assert.Equal(t, sharedParams.CookieName, session.JWTCookie)
-	assert.Equal(t, sharedParams.CookieValue, tokenResponse.IdToken)
+	assert.Equal(t, sharedParams.CookieValue, tokenResponse.IDToken)
 }
 
 func TestAuthentication(t *testing.T) {
@@ -904,14 +905,14 @@ func TestAuthentication(t *testing.T) {
 
 	//session is nil
 	clearSharedParam()
-	err := Authentication(nil, mcHandler, nil);
+	err := Authentication(nil, mcHandler, nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, "session is nil", err.Error())
 
 	//s.UserInfo.Sub is empty, discovery endpoint is empty
 	clearSharedParam()
 	globalConfig.DiscoveryEndpoint = ""
-	err = Authentication(nil, mcHandler, s);
+	err = Authentication(nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Fail to initiate session with ApiExchange", s.ErrorMessage)
 	assert.Equal(t, "Fail to initiate session with ApiExchange", sharedParams.Session.ErrorMessage)
@@ -919,10 +920,10 @@ func TestAuthentication(t *testing.T) {
 	//s.UserInfo.Sub is empty, discovery endpoint is not empty but no operatorSelection in response
 	clearSharedParam()
 	discoveryResponse = &mcmodel.DiscoveryResponse{
-		Links: []mcmodel.IdGatewayOperatorLink{},
+		Links: []mcmodel.IDGatewayOperatorLink{},
 	}
-	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery_response", testingServerBaseUrl)
-	err = Authentication(nil, mcHandler, s);
+	globalConfig.DiscoveryEndpoint = fmt.Sprintf("%v/discovery_response", testingServerBaseURL)
+	err = Authentication(nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "no operatorSelection found in ApiExchange discovery response", s.ErrorMessage)
 	assert.Equal(t, "no operatorSelection found in ApiExchange discovery response", sharedParams.Session.ErrorMessage)
@@ -930,17 +931,17 @@ func TestAuthentication(t *testing.T) {
 	//s.UserInfo.Sub is empty, OK
 	clearSharedParam()
 	discoveryResponse = &mcmodel.DiscoveryResponse{
-		Links: []mcmodel.IdGatewayOperatorLink{
+		Links: []mcmodel.IDGatewayOperatorLink{
 			{
-				Rel: "operatorSelection",
-				Href: discoveryUrl,
+				Rel:  "operatorSelection",
+				Href: discoveryURL,
 			},
 		},
 	}
-	err = Authentication(nil, mcHandler, s);
+	err = Authentication(nil, mcHandler, s)
 	assert.NotNil(t, sharedParams.Location)
 	assert.Nil(t, err)
-	assert.Equal(t, discoveryUrl, *sharedParams.Location)
+	assert.Equal(t, discoveryURL, *sharedParams.Location)
 	assert.True(t, sharedParams.Redirect)
 
 	//s.UserInfo.Sub is not empty, authorization endpoint is empty
@@ -950,7 +951,7 @@ func TestAuthentication(t *testing.T) {
 	s.AuthorizeEndpoint = ""
 	clearSharedParam()
 	globalConfig.DiscoveryEndpoint = ""
-	err = Authentication(nil, mcHandler, s);
+	err = Authentication(nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.Equal(t, "Fail to initiate session with ApiExchange", s.ErrorMessage)
 	assert.Equal(t, "Fail to initiate session with ApiExchange", sharedParams.Session.ErrorMessage)
@@ -959,9 +960,9 @@ func TestAuthentication(t *testing.T) {
 	s.UserInfo = mcmodel.UserInfoResponse{
 		Sub: "some subscriberId",
 	}
-	s.AuthorizeEndpoint = authorizeUrl
+	s.AuthorizeEndpoint = authorizeURL
 	clearSharedParam()
-	err = Authentication(nil, mcHandler, s);
+	err = Authentication(nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.NotNil(t, sharedParams.Location)
 	location, err := authorizeWithPCR(globalConfig, s, true)
@@ -972,9 +973,9 @@ func TestAuthentication(t *testing.T) {
 	s.UserInfo = mcmodel.UserInfoResponse{
 		Sub: "+123456789",
 	}
-	s.AuthorizeEndpoint = authorizeUrl
+	s.AuthorizeEndpoint = authorizeURL
 	clearSharedParam()
-	err = Authentication(nil, mcHandler, s);
+	err = Authentication(nil, mcHandler, s)
 	assert.Nil(t, err)
 	assert.NotNil(t, sharedParams.Location)
 	location, err = authorizeWithPCR(globalConfig, s, false)
@@ -982,7 +983,7 @@ func TestAuthentication(t *testing.T) {
 	assert.Equal(t, location, *sharedParams.Location)
 }
 
-func clearSharedParam(){
+func clearSharedParam() {
 	sharedParams.Context = nil
 	sharedParams.Session = nil
 	sharedParams.Error = nil
@@ -998,7 +999,7 @@ func clearSharedParam(){
 type CustomMcApp struct {
 }
 
-func (app *CustomMcApp) GetHttpClient() *http.Client {
+func (app *CustomMcApp) GetHTTPClient() *http.Client {
 	return httpClient
 }
 func (app *CustomMcApp) SetSession(session *session.Session) (id string, e error) {
@@ -1011,15 +1012,15 @@ func (app *CustomMcApp) GetSessionFromStore(uuid *string) (s *session.Session, e
 func (app *CustomMcApp) DeleteSession(uuid *string) error {
 	return nil
 }
-func (app *CustomMcApp) SetCookie(c interface{}, name string, value string){
+func (app *CustomMcApp) SetCookie(c interface{}, name string, value string) {
 	sharedParams.CookieName = name
 	sharedParams.CookieValue = value
 }
-func (app *CustomMcApp) GetCookie(c interface{}, name string) (string,error) {
+func (app *CustomMcApp) GetCookie(c interface{}, name string) (string, error) {
 	return "", nil
 }
 func (app *CustomMcApp) DeleteCookie(c interface{}, name string) {
-	
+
 }
 func (app *CustomMcApp) SetSessionCookie(c interface{}, name string, value string) {
 }
@@ -1028,7 +1029,7 @@ func (app *CustomMcApp) SetSessionContext(c interface{}, s *session.Session) {
 func (app *CustomMcApp) GetConfig() *config.Config {
 	return globalConfig
 }
-func (app *CustomMcApp) RedirectLogin(c interface{}, s *session.Session) error{
+func (app *CustomMcApp) RedirectLogin(c interface{}, s *session.Session) error {
 	sharedParams.Context = c
 	sharedParams.Session = s
 	return sharedParams.Error

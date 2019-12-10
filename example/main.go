@@ -1,37 +1,38 @@
 package main
 
 import (
-	"github.com/labstack/echo/v4"
-	"github.com/bertrandmartel/mobileconnect/sp/handlers/auth"
-	"github.com/bertrandmartel/mobileconnect/sp/config"
-	"github.com/bertrandmartel/mobileconnect/sp/middleware"
-	"github.com/bertrandmartel/mobileconnect/sp/mcmodel"
-	"github.com/bertrandmartel/mobileconnect/sp/session"
-	"github.com/bertrandmartel/mobileconnect/sp/application"
-	"github.com/bertrandmartel/mobileconnect/sp/jwt"
-	mw "github.com/labstack/echo/v4/middleware"
-	"gopkg.in/go-playground/validator.v9"
-	"github.com/go-redis/redis/v7"
-	"strconv"
+	"encoding/json"
 	"html/template"
 	"io"
-	"net/http"
-	"time"
 	"log"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/bertrandmartel/mobileconnect/sp/application"
+	"github.com/bertrandmartel/mobileconnect/sp/config"
+	"github.com/bertrandmartel/mobileconnect/sp/handlers/auth"
+	"github.com/bertrandmartel/mobileconnect/sp/jwt"
+	"github.com/bertrandmartel/mobileconnect/sp/mcmodel"
+	"github.com/bertrandmartel/mobileconnect/sp/middleware"
+	"github.com/bertrandmartel/mobileconnect/sp/session"
+	"github.com/go-redis/redis/v7"
+	"github.com/labstack/echo/v4"
+	mw "github.com/labstack/echo/v4/middleware"
 	"github.com/lestrrat-go/jwx/jwk"
-	"encoding/json"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 type Template struct {
-    templates *template.Template
+	templates *template.Template
 }
 
 func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-    return t.templates.ExecuteTemplate(w, name, data)
+	return t.templates.ExecuteTemplate(w, name, data)
 }
 
 func main() {
-	config, err := config.ParseConfig( "config-sandbox.json")
+	config, err := config.ParseConfig("config-sandbox.json")
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -59,9 +60,9 @@ func main() {
 func routes(e *echo.Echo, config *config.Config, conn *redis.Client, httpClient *http.Client) {
 	//init the render interface
 	var mcHandler application.MobileConnectApp = &CustomMcApp{
-		Config: config,
+		Config:      config,
 		RedisClient: conn,
-		HttpClient: httpClient,
+		HTTPClient:  httpClient,
 	}
 	e.Use(bindApp(&mcHandler))
 
@@ -88,7 +89,7 @@ func routes(e *echo.Echo, config *config.Config, conn *redis.Client, httpClient 
 		}
 		return auth.Callback(c, request, app, s)
 	}, MWSession)
-	
+
 	e.GET("/logout", func(c echo.Context) error {
 		app := c.Get("application").(*application.MobileConnectApp)
 		return (*app).RedirectLogin(c, nil)
@@ -111,33 +112,33 @@ func routes(e *echo.Echo, config *config.Config, conn *redis.Client, httpClient 
 }
 
 func bindApp(app *application.MobileConnectApp) echo.MiddlewareFunc {
-    return func(next echo.HandlerFunc) echo.HandlerFunc {
-        return func(c echo.Context) error {
-            c.Set("application", app)
-            return next(c)
-        }
-    }
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Set("application", app)
+			return next(c)
+		}
+	}
 }
 
 type CustomMcApp struct {
-	Config *config.Config
+	Config      *config.Config
 	RedisClient *redis.Client
-	HttpClient *http.Client
+	HTTPClient  *http.Client
 }
 
-func (app *CustomMcApp) GetHttpClient() *http.Client {
-	return app.HttpClient
+func (app *CustomMcApp) GetHTTPClient() *http.Client {
+	return app.HTTPClient
 }
 func (app *CustomMcApp) SetSession(session *session.Session) (id string, e error) {
-	sessionKey := session.Id
-	if (session.JwkSet.Keys == nil){
+	sessionKey := session.ID
+	if session.JwkSet.Keys == nil {
 		session.JwkSet.Keys = []jwk.Key{}
 	}
-	sessionJson, err := json.Marshal(*session)
-    if err != nil {
-        return "", err
-    }
-	err = app.RedisClient.Set("session:" + sessionKey, sessionJson, time.Hour).Err()
+	sessionJSON, err := json.Marshal(*session)
+	if err != nil {
+		return "", err
+	}
+	err = app.RedisClient.Set("session:"+sessionKey, sessionJSON, time.Hour).Err()
 	if err != nil {
 		return "", err
 	}
@@ -157,30 +158,30 @@ func (app *CustomMcApp) GetSessionFromStore(uuid *string) (s *session.Session, e
 func (app *CustomMcApp) DeleteSession(uuid *string) error {
 	return app.RedisClient.Del(*uuid).Err()
 }
-func (app *CustomMcApp) SetCookie(c interface{}, name string, value string){
+func (app *CustomMcApp) SetCookie(c interface{}, name string, value string) {
 	cookie := new(http.Cookie)
 	cookie.Name = name
 	cookie.Value = value
 	cookie.HttpOnly = true
 	c.(echo.Context).SetCookie(cookie)
 }
-func (app *CustomMcApp) GetCookie(c interface{}, name string) (string,error) {
+func (app *CustomMcApp) GetCookie(c interface{}, name string) (string, error) {
 	cookie, err := c.(echo.Context).Cookie(name)
-	if (err != nil){
-		return "",err
+	if err != nil {
+		return "", err
 	}
 	return cookie.Value, nil
 }
 func (app *CustomMcApp) DeleteCookie(c interface{}, name string) {
 	cookie, err := c.(echo.Context).Cookie(name)
-	if (err != nil) {
+	if err != nil {
 		return
 	}
 	cookie.Value = ""
 	cookie.Expires = time.Unix(0, 0)
 	cookie.HttpOnly = true
 	c.(echo.Context).SetCookie(cookie)
-	
+
 }
 func (app *CustomMcApp) SetSessionCookie(c interface{}, name string, value string) {
 	cookie := new(http.Cookie)
@@ -196,7 +197,7 @@ func (app *CustomMcApp) SetSessionContext(c interface{}, s *session.Session) {
 func (app *CustomMcApp) GetConfig() *config.Config {
 	return app.Config
 }
-func (app *CustomMcApp) RedirectLogin(c interface{}, s *session.Session) error{
+func (app *CustomMcApp) RedirectLogin(c interface{}, s *session.Session) error {
 	return c.(echo.Context).Redirect(http.StatusFound, "/login")
 }
 func (app *CustomMcApp) RedirectLoginSuccess(c interface{}, s *session.Session) error {
@@ -212,16 +213,16 @@ func (app *CustomMcApp) RenderLogin(c interface{}, s *session.Session) error {
 }
 func (app *CustomMcApp) RenderLandingPage(c interface{}, s *session.Session) error {
 	return c.(echo.Context).Render(http.StatusOK, "app.html", map[string]interface{}{
-		"title": s.UserInfo.Title,
-		"given_name": s.UserInfo.GivenName,
-		"family_name": s.UserInfo.FamilyName,
-		"middle_name": s.UserInfo.MiddleName,
-		"street_address": s.UserInfo.StreetAddress,
-		"city": s.UserInfo.City,
-		"state": s.UserInfo.State,
-		"postal_code": s.UserInfo.PostalCode,
-		"country": s.UserInfo.Country,
-		"email": s.UserInfo.Email,
+		"title":           s.UserInfo.Title,
+		"given_name":      s.UserInfo.GivenName,
+		"family_name":     s.UserInfo.FamilyName,
+		"middle_name":     s.UserInfo.MiddleName,
+		"street_address":  s.UserInfo.StreetAddress,
+		"city":            s.UserInfo.City,
+		"state":           s.UserInfo.State,
+		"postal_code":     s.UserInfo.PostalCode,
+		"country":         s.UserInfo.Country,
+		"email":           s.UserInfo.Email,
 		"session_timeout": s.ExpirationTime,
 	})
 }
@@ -234,7 +235,7 @@ func MWJwt(next echo.HandlerFunc) echo.HandlerFunc {
 		app := c.Get("application").(*application.MobileConnectApp)
 		s := c.Get("session").(*session.Session)
 		log.Println("executing JWT middleware")
-		jwtMw := jwt.JwtMiddlewareWithErr(c, s, *app)
+		jwtMw := jwt.MiddlewareWithErr(c, s, *app)
 		if jwtMw == nil {
 			return next(c)
 		}
@@ -247,7 +248,7 @@ func MWJwtRedirectApp(next echo.HandlerFunc) echo.HandlerFunc {
 		app := c.Get("application").(*application.MobileConnectApp)
 		s := c.Get("session").(*session.Session)
 		log.Println("executing JWTRedirectApp middleware")
-		jwtMw := jwt.JwtMiddleware(c, s, *app)
+		jwtMw := jwt.Middleware(c, s, *app)
 		if jwtMw.Error != nil {
 			return next(c)
 		}
@@ -273,13 +274,13 @@ func MWSession(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 type ErrorResponse struct {
-	Error string `json:"error"`
+	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description"`
 }
 
 func SendError(errorMessage string, errorDescription string) *ErrorResponse {
 	return &ErrorResponse{
-		Error: errorMessage,
+		Error:            errorMessage,
 		ErrorDescription: errorDescription,
 	}
 }
