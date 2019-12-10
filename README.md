@@ -1,5 +1,10 @@
 # Mobile Connect GO library
 
+[![Build Status](https://github.com/bertrandmartel/mobileconnect/workflows/test%20and%20build/badge.svg)](https://github.com/bertrandmartel/mobileconnect/actions?workflow=test%20and%20build)
+[![Coverage Status](https://coveralls.io/repos/github/bertrandmartel/mobileconnect/badge.svg?branch=master)](https://coveralls.io/github/bertrandmartel/mobileconnect?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bertrandmartel/mobileconnect)](https://goreportcard.com/report/github.com/bertrandmartel/mobileconnect)
+[![License](http://img.shields.io/:license-mit-blue.svg)](LICENSE.md)
+
 Library written in GO implementing [Mobile Connect API](https://mobileconnect.io/) to be used by a Service Provider (SP).
 
 ## Existing Mobile Connect libraries
