@@ -307,6 +307,12 @@ func Callback(context interface{}, request *mcmodel.LoginCallback, app applicati
 	if request == nil {
 		return renderFailedLogin(context, "request is nil", &app, s)
 	}
+	//get the session from the state value in case cookie was not forwarded to /authorize
+	s, err := app.GetSessionFromStore(&request.State)
+	if err != nil {
+		fmt.Println(err)
+		return renderFailedLogin(context, "session is nil", &app, s)
+	}
 	if s == nil {
 		return renderFailedLogin(context, "session is nil", &app, s)
 	}
@@ -352,6 +358,15 @@ func Callback(context interface{}, request *mcmodel.LoginCallback, app applicati
 		s.UserInfo = *userInfoResponse
 		app.SetSession(s)
 		app.SetCookie(context, session.JWTCookie, tokenResponse.IDToken)
+
+		//we need to set the session cookie in case cookie were not forwared in /authorize request
+		sessionVal, err := app.SetSession(s)
+		if err != nil {
+			return renderFailedLogin(context, "failed to set session", &app, s)
+		}
+		app.SetSessionCookie(context, session.SessionCookie, sessionVal)
+		app.SetSessionContext(context, s)
+
 		return app.RedirectLoginSuccess(context, s)
 	}
 	return app.RedirectLogin(context, s)
