@@ -303,9 +303,9 @@ func Process(context interface{},
 	return app.Redirect(context, &location)
 }
 
-func Callback(context interface{}, request *mcmodel.LoginCallback, app application.MobileConnectApp, s *session.Session) error {
+func Callback(context interface{}, request *mcmodel.LoginCallback, app application.MobileConnectApp) error {
 	if request == nil {
-		return renderFailedLogin(context, "request is nil", &app, s)
+		return renderFailedLogin(context, "request is nil", &app, nil)
 	}
 	//get the session from the state value in case cookie was not forwarded to /authorize
 	s, err := app.GetSessionFromStore(&request.State)
@@ -317,6 +317,7 @@ func Callback(context interface{}, request *mcmodel.LoginCallback, app applicati
 		return renderFailedLogin(context, "session is nil", &app, s)
 	}
 	if request.Error != "" {
+		fmt.Println(request)
 		return renderFailedLogin(context, fmt.Sprintf("%v : %v", request.Error, request.ErrorDescription), &app, s)
 	}
 	if request.Code != "" /*&& request.State != ""*/ {
