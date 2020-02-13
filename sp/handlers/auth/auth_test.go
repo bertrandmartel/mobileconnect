@@ -745,144 +745,144 @@ func TestCallback(t *testing.T) {
 	err = Callback(nil, request, mcHandler)
 	assert.Nil(t, err)
 	/*
-	request.Code = "code"
+		request.Code = "code"
 
-	s.OperatorConfig = mcmodel.OperatorConfig{
-		Apis: mcmodel.IDGatewayAPI{
-			OperatorID: mcmodel.IDGatewayOperatorMeta{
-				Link: []mcmodel.IDGatewayOperatorLink{
-					{
-						Href: "http://localhost",
-						Rel:  "test",
+		s.OperatorConfig = mcmodel.OperatorConfig{
+			Apis: mcmodel.IDGatewayAPI{
+				OperatorID: mcmodel.IDGatewayOperatorMeta{
+					Link: []mcmodel.IDGatewayOperatorLink{
+						{
+							Href: "http://localhost",
+							Rel:  "test",
+						},
 					},
 				},
 			},
-		},
-	}
-	//token endpoint is not in operator config
+		}
+		//token endpoint is not in operator config
 
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler)
-	assert.Nil(t, err)
-	assert.Equal(t, "token endpoint not found in operator config", sharedParams.SetSession.ErrorMessage)
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler)
+		assert.Nil(t, err)
+		assert.Equal(t, "token endpoint not found in operator config", sharedParams.SetSession.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = append(
-		s.OperatorConfig.Apis.OperatorID.Link,
-		mcmodel.IDGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/token_incorrect_url", testingServerBaseURL),
-			Rel:  "token",
-		})
+		s.OperatorConfig.Apis.OperatorID.Link = append(
+			s.OperatorConfig.Apis.OperatorID.Link,
+			mcmodel.IDGatewayOperatorLink{
+				Href: fmt.Sprintf("%v/token_incorrect_url", testingServerBaseURL),
+				Rel:  "token",
+			})
 
-	//userinfo endpoint is not in operator config
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, "premiuminfo endpoint not found in operator config", s.ErrorMessage)
-	assert.Equal(t, "premiuminfo endpoint not found in operator config", sharedParams.Session.ErrorMessage)
+		//userinfo endpoint is not in operator config
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, "premiuminfo endpoint not found in operator config", s.ErrorMessage)
+		assert.Equal(t, "premiuminfo endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = append(
-		s.OperatorConfig.Apis.OperatorID.Link,
-		mcmodel.IDGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseURL),
-			Rel:  "premiuminfo",
-		})
+		s.OperatorConfig.Apis.OperatorID.Link = append(
+			s.OperatorConfig.Apis.OperatorID.Link,
+			mcmodel.IDGatewayOperatorLink{
+				Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseURL),
+				Rel:  "premiuminfo",
+			})
 
-	//token endpoint is in config but is incorrect
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, "Fail to get token", s.ErrorMessage)
-	assert.Equal(t, "Fail to get token", sharedParams.Session.ErrorMessage)
+		//token endpoint is in config but is incorrect
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, "Fail to get token", s.ErrorMessage)
+		assert.Equal(t, "Fail to get token", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
-		{
-			Href: fmt.Sprintf("%v/token", testingServerBaseURL),
-			Rel:  "token",
-		}, {
-			Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseURL),
-			Rel:  "premiuminfo",
-		},
-	}
+		s.OperatorConfig.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
+			{
+				Href: fmt.Sprintf("%v/token", testingServerBaseURL),
+				Rel:  "token",
+			}, {
+				Href: fmt.Sprintf("%v/userinfo_incorrect_url", testingServerBaseURL),
+				Rel:  "premiuminfo",
+			},
+		}
 
-	//userinfo endpoint is in config but is incorrect
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, "Fail to get userinfo", s.ErrorMessage)
-	assert.Equal(t, "Fail to get userinfo", sharedParams.Session.ErrorMessage)
+		//userinfo endpoint is in config but is incorrect
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, "Fail to get userinfo", s.ErrorMessage)
+		assert.Equal(t, "Fail to get userinfo", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
-		{
-			Href: fmt.Sprintf("%v/token", testingServerBaseURL),
-			Rel:  "token",
-		}, {
-			Href: fmt.Sprintf("%v/userinfo", testingServerBaseURL),
-			Rel:  "premiuminfo",
-		},
-	}
+		s.OperatorConfig.Apis.OperatorID.Link = []mcmodel.IDGatewayOperatorLink{
+			{
+				Href: fmt.Sprintf("%v/token", testingServerBaseURL),
+				Rel:  "token",
+			}, {
+				Href: fmt.Sprintf("%v/userinfo", testingServerBaseURL),
+				Rel:  "premiuminfo",
+			},
+		}
 
-	//jwks endpoint is not in config
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, "jwks endpoint not found in operator config", s.ErrorMessage)
-	assert.Equal(t, "jwks endpoint not found in operator config", sharedParams.Session.ErrorMessage)
+		//jwks endpoint is not in config
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, "jwks endpoint not found in operator config", s.ErrorMessage)
+		assert.Equal(t, "jwks endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = append(
-		s.OperatorConfig.Apis.OperatorID.Link,
-		mcmodel.IDGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/jwks", testingServerBaseURL),
-			Rel:  "jwks",
-		})
+		s.OperatorConfig.Apis.OperatorID.Link = append(
+			s.OperatorConfig.Apis.OperatorID.Link,
+			mcmodel.IDGatewayOperatorLink{
+				Href: fmt.Sprintf("%v/jwks", testingServerBaseURL),
+				Rel:  "jwks",
+			})
 
-	//authorization endpoint is not in config
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, "authorization endpoint not found in operator config", s.ErrorMessage)
-	assert.Equal(t, "authorization endpoint not found in operator config", sharedParams.Session.ErrorMessage)
+		//authorization endpoint is not in config
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, "authorization endpoint not found in operator config", s.ErrorMessage)
+		assert.Equal(t, "authorization endpoint not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = append(
-		s.OperatorConfig.Apis.OperatorID.Link,
-		mcmodel.IDGatewayOperatorLink{
-			Href: fmt.Sprintf("%v/authorize", testingServerBaseURL),
-			Rel:  "authorization",
-		})
+		s.OperatorConfig.Apis.OperatorID.Link = append(
+			s.OperatorConfig.Apis.OperatorID.Link,
+			mcmodel.IDGatewayOperatorLink{
+				Href: fmt.Sprintf("%v/authorize", testingServerBaseURL),
+				Rel:  "authorization",
+			})
 
-	//issuer value is not in config
-	clearSharedParam()
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, "issuer value not found in operator config", s.ErrorMessage)
-	assert.Equal(t, "issuer value not found in operator config", sharedParams.Session.ErrorMessage)
+		//issuer value is not in config
+		clearSharedParam()
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, "issuer value not found in operator config", s.ErrorMessage)
+		assert.Equal(t, "issuer value not found in operator config", sharedParams.Session.ErrorMessage)
 
-	s.OperatorConfig.Apis.OperatorID.Link = append(
-		s.OperatorConfig.Apis.OperatorID.Link,
-		mcmodel.IDGatewayOperatorLink{
-			Href: "http://localhost",
-			Rel:  "issuer",
-		})
+		s.OperatorConfig.Apis.OperatorID.Link = append(
+			s.OperatorConfig.Apis.OperatorID.Link,
+			mcmodel.IDGatewayOperatorLink{
+				Href: "http://localhost",
+				Rel:  "issuer",
+			})
 
-	//OK
-	clearSharedParam()
-	s.UserInfo = mcmodel.UserInfoResponse{}
-	err = Callback(nil, request, mcHandler, s)
-	assert.Nil(t, err)
-	assert.Equal(t, userInfoResponse.Sub, s.UserInfo.Sub)
-	assert.Equal(t, userInfoResponse.PhoneNumberAlternate, s.UserInfo.PhoneNumberAlternate)
-	assert.Equal(t, userInfoResponse.Title, s.UserInfo.Title)
-	assert.Equal(t, userInfoResponse.GivenName, s.UserInfo.GivenName)
-	assert.Equal(t, userInfoResponse.FamilyName, s.UserInfo.FamilyName)
-	assert.Equal(t, userInfoResponse.MiddleName, s.UserInfo.MiddleName)
-	assert.Equal(t, userInfoResponse.StreetAddress, s.UserInfo.StreetAddress)
-	assert.Equal(t, userInfoResponse.City, s.UserInfo.City)
-	assert.Equal(t, userInfoResponse.State, s.UserInfo.State)
-	assert.Equal(t, userInfoResponse.PostalCode, s.UserInfo.PostalCode)
-	assert.Equal(t, userInfoResponse.Email, s.UserInfo.Email)
+		//OK
+		clearSharedParam()
+		s.UserInfo = mcmodel.UserInfoResponse{}
+		err = Callback(nil, request, mcHandler, s)
+		assert.Nil(t, err)
+		assert.Equal(t, userInfoResponse.Sub, s.UserInfo.Sub)
+		assert.Equal(t, userInfoResponse.PhoneNumberAlternate, s.UserInfo.PhoneNumberAlternate)
+		assert.Equal(t, userInfoResponse.Title, s.UserInfo.Title)
+		assert.Equal(t, userInfoResponse.GivenName, s.UserInfo.GivenName)
+		assert.Equal(t, userInfoResponse.FamilyName, s.UserInfo.FamilyName)
+		assert.Equal(t, userInfoResponse.MiddleName, s.UserInfo.MiddleName)
+		assert.Equal(t, userInfoResponse.StreetAddress, s.UserInfo.StreetAddress)
+		assert.Equal(t, userInfoResponse.City, s.UserInfo.City)
+		assert.Equal(t, userInfoResponse.State, s.UserInfo.State)
+		assert.Equal(t, userInfoResponse.PostalCode, s.UserInfo.PostalCode)
+		assert.Equal(t, userInfoResponse.Email, s.UserInfo.Email)
 
-	assert.True(t, sharedParams.LoginSuccess)
-	assert.Equal(t, sharedParams.CookieName, session.JWTCookie)
-	assert.Equal(t, sharedParams.CookieValue, tokenResponse.IDToken)
+		assert.True(t, sharedParams.LoginSuccess)
+		assert.Equal(t, sharedParams.CookieName, session.JWTCookie)
+		assert.Equal(t, sharedParams.CookieValue, tokenResponse.IDToken)
 	*/
 }
 
@@ -997,7 +997,7 @@ func (app *CustomMcApp) SetSession(session *session.Session) (id string, e error
 }
 func (app *CustomMcApp) GetSessionFromStore(uuid *string) (s *session.Session, e error) {
 	s = &session.Session{
-		ID: "state",
+		ID:           "state",
 		ErrorMessage: "",
 	}
 	return s, nil
