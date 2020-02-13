@@ -82,12 +82,11 @@ func routes(e *echo.Echo, config *config.Config, conn *redis.Client, httpClient 
 	}, MWSession)
 	e.GET("/callback", func(c echo.Context) error {
 		app := *c.Get("application").(*application.MobileConnectApp)
-		s := c.Get("session").(*session.Session)
 		request := new(mcmodel.LoginCallback)
 		if err := c.Bind(request); err != nil {
 			return c.JSON(http.StatusBadRequest, SendError("invalid_request", "incorrect parameters"))
 		}
-		return auth.Callback(c, request, app, s)
+		return auth.Callback(c, request, app)
 	}, MWSession)
 
 	e.GET("/logout", func(c echo.Context) error {
