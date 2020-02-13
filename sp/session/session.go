@@ -19,4 +19,5 @@ type Session struct {
 	OperatorConfig    mcmodel.OperatorConfig   `json:"operator_config"`
 	JwkSet            jwk.Set                  `json:"jwks"`
 	ExpirationTime    int64                    `json:"expiration_time"`
+	Metadata          string                   `json:"metadata"`
 }
