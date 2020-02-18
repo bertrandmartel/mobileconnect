@@ -300,6 +300,7 @@ func Process(context interface{},
 		fmt.Println(err)
 		return renderFailedLogin(context, err.Error(), &app, s)
 	}
+	log.Println(location)
 	return app.Redirect(context, &location)
 }
 

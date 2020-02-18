@@ -20,4 +20,5 @@ type Session struct {
 	JwkSet            jwk.Set                  `json:"jwks"`
 	ExpirationTime    int64                    `json:"expiration_time"`
 	Metadata          string                   `json:"metadata"`
+	CookieTimeout     int64                    `json:"cookie_timeout"`
 }
